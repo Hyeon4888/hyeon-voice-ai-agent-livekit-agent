@@ -24,6 +24,15 @@ class Agent:
     system_prompt: Optional[str] = None
     user_id: Optional[str] = None
     api_key: Optional[str] = None
+    tool_id: Optional[str] = None
+
+@dataclass
+class AgentTool:
+    id: str
+    name: str
+    appointment_tool: bool
+    user_id: str
+    created_at: str
 
 async def fetch_agent(agent_id: str) -> Agent:
     """
@@ -79,5 +88,48 @@ async def fetch_agent(agent_id: str) -> Agent:
             greeting_prompt=data.get("greeting_prompt",""),
             system_prompt=data.get("system_prompt",""),
             user_id=data.get("user_id",""),
-            api_key=data.get("api_key")
+            api_key=data.get("api_key"),
+            tool_id=data.get("tool_id")
+        )
+
+async def get_tools(tool_id: str) -> AgentTool:
+    """
+    Fetch tool configuration from the backend API.
+    
+    Args:
+        tool_id: The ID of the tools to fetch.
+        
+    Returns:
+        AgentTool: The tools configuration object.
+        
+    Raises:
+        ValueError: If API_SECRET_KEY is not set.
+        httpx.HTTPStatusError: If the API request fails.
+    """
+    
+    # Get API configuration
+    api_url = os.getenv("API_URL", "http://127.0.0.1:8000")
+    secret_key = os.getenv("API_SECRET_KEY")
+    
+    if not secret_key:
+        raise ValueError("API_SECRET_KEY is not set in environment variables")
+    
+    # Construct endpoint URL
+    url = f"{api_url}/tools/{tool_id}"
+    
+    headers = {
+        "Authorization": f"Bearer {secret_key}",
+        "Content-Type": "application/json"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        return AgentTool(
+            id=data.get("id"),
+            name=data.get("name"),
+            appointment_tool=data.get("appointment_tool"),
+            user_id=data.get("user_id"),
+            created_at=data.get("created_at")
         )
