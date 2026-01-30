@@ -9,4 +9,5 @@ KMS
 .vscode
 *.egg-info
 .pytest_cache
-.ruff_cachegoogle_credentials.json
+.ruff_cache
+google_credentials.json

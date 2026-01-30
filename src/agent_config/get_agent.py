@@ -162,3 +162,35 @@ async def get_agentTools(agent: Agent) -> list:
         except Exception as e:
             logger.error(f"Failed to fetch tools for agent {agent.id}: {e}")
     return tools
+
+async def create_history(data: dict) -> None:
+    """
+    Create a history entry in the backend.
+    
+    Args:
+        data: Dictionary containing history data matching HistoryCreate model.
+    """
+    api_url = os.getenv("API_URL", "http://127.0.0.1:8000")
+    secret_key = os.getenv("API_SECRET_KEY")
+    
+    if not secret_key:
+        logger.warning("API_SECRET_KEY not set, skipping history creation")
+        return
+
+    url = f"{api_url}/history/create"
+    
+    headers = {
+        "Authorization": f"Bearer {secret_key}",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        logger.info(f"Sending history creation request to {url}")
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=data, headers=headers)
+            if response.status_code != 200:
+                logger.error(f"Failed to create history. Status: {response.status_code}, Response: {response.text}")
+            response.raise_for_status()
+            logger.info(f"History created successfully for agent {data.get('agent_id')}")
+    except Exception as e:
+        logger.error(f"Exception during history creation: {e}", exc_info=True)

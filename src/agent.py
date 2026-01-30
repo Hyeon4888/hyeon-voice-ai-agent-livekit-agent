@@ -9,7 +9,8 @@ from livekit.plugins import (
 import logging
 import os
 from pathlib import Path
-from agent_config.get_agent import fetch_agent, get_agentTools
+import datetime
+from agent_config.get_agent import fetch_agent, get_agentTools, create_history
 from agent_config.session_factory import getAgentSession
 
 # Load environment variables from src/.env.local
@@ -54,6 +55,34 @@ async def my_agent(ctx: agents.JobContext):
     session = getAgentSession(agent)
 
     tools = await get_agentTools(agent)
+
+    start_time = datetime.datetime.now()
+
+    async def shutdown_handler():
+        logger.info(f"Session shutdown initiated for agent {agent.id}")
+        end_time = datetime.datetime.now()
+        duration = int((end_time - start_time).total_seconds())
+        
+        conversation = []
+        if hasattr(session, 'chat_ctx'):
+             for msg in session.chat_ctx.messages:
+                 conversation.append({
+                     "role": msg.role,
+                     "content": msg.content
+                 })
+        
+        logger.info(f"Gathered session history: duration={duration}s, conversation_messages={len(conversation)}")
+        
+        await create_history({
+            "agent_id": agent.id,
+            "date": end_time.date().isoformat(),
+            "time": end_time.time().isoformat(),
+            "duration": duration,
+            "summary": None,
+            "conversation": conversation
+        })
+
+    ctx.add_shutdown_callback(shutdown_handler)
 
     await session.start(
         room=ctx.room,
