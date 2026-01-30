@@ -19,8 +19,8 @@ logger = logging.getLogger("appointment-tools")
 
 class AppointmentTools:
     def __init__(self):
-        self._service = self._get_calendar_service()
         self._calendar_id = os.getenv("GOOGLE_CALENDAR_ID", "primary")
+        self._service = self._get_calendar_service()
         self.api = LiveKitAPI()
 
     def _get_calendar_service(self):
@@ -29,6 +29,8 @@ class AppointmentTools:
         if not creds_path or not os.path.exists(creds_path):
             logger.warning("GOOGLE_APPLICATION_CREDENTIALS not set or file not found. Calendar integration disabled.")
             return None
+        logger.info(f"credentials path: {creds_path}")
+        logger.info(f"calendar id: {self._calendar_id}")
         
         try:
             scopes = ['https://www.googleapis.com/auth/calendar']

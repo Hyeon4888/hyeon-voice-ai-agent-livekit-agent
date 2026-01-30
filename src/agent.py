@@ -9,18 +9,17 @@ from livekit.plugins import (
 import logging
 import os
 from pathlib import Path
-from agent_config.get_agent import fetch_agent
+from agent_config.get_agent import fetch_agent, get_agentTools
 from agent_config.session_factory import getAgentSession
 
 # Load environment variables from src/.env.local
-env_path = Path(__file__).parent / ".env.local"
-load_dotenv(dotenv_path=env_path)
+load_dotenv(".env.local")
 logger = logging.getLogger("voice-agent")
 logger.setLevel(logging.INFO)
 
 class Assistant(Agent):
-    def __init__(self, system_prompt: str, greeting_prompt: str) -> None:
-        super().__init__(instructions=system_prompt)
+    def __init__(self, system_prompt: str, greeting_prompt: str, tools: list = None) -> None:
+        super().__init__(instructions=system_prompt, tools=tools)
         self.greeting_prompt = greeting_prompt
 
     async def on_enter(self):
@@ -54,9 +53,11 @@ async def my_agent(ctx: agents.JobContext):
 
     session = getAgentSession(agent)
 
+    tools = await get_agentTools(agent)
+
     await session.start(
         room=ctx.room,
-        agent=Assistant(agent.system_prompt, agent.greeting_prompt),
+        agent=Assistant(agent.system_prompt, agent.greeting_prompt, tools=tools),
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
                 noise_cancellation=lambda params: noise_cancellation.BVCTelephony() if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP else noise_cancellation.BVC(),

@@ -8,8 +8,7 @@ import logging
 from pathlib import Path
 
 # Load environment variables
-env_path = Path(__file__).parent.parent / ".env.local"
-load_dotenv(dotenv_path=env_path)
+load_dotenv(".env.local")
 
 logger = logging.getLogger("voice-agent")
 logger.setLevel(logging.INFO)
@@ -115,7 +114,7 @@ async def get_tools(tool_id: str) -> AgentTool:
         raise ValueError("API_SECRET_KEY is not set in environment variables")
     
     # Construct endpoint URL
-    url = f"{api_url}/tools/{tool_id}"
+    url = f"{api_url}/tools/get/{tool_id}"
     
     headers = {
         "Authorization": f"Bearer {secret_key}",
@@ -126,6 +125,13 @@ async def get_tools(tool_id: str) -> AgentTool:
         response = await client.get(url, headers=headers)
         response.raise_for_status()
         data = response.json()
+
+    
+        logger.info(f"Tool ID: {data.get('id')}")
+        logger.info(f"Tool Name: {data.get('name')}")
+        logger.info(f"Appointment Tool: {data.get('appointment_tool')}")
+        logger.info(f"User ID: {data.get('user_id')}")
+
         return AgentTool(
             id=data.get("id"),
             name=data.get("name"),
@@ -133,3 +139,26 @@ async def get_tools(tool_id: str) -> AgentTool:
             user_id=data.get("user_id"),
             created_at=data.get("created_at")
         )
+
+# Import necessary for the new function
+from tools.appointment_tool import AppointmentTools
+
+async def get_agentTools(agent: Agent) -> list:
+    """
+    Fetch and initialize tools for the agent.
+    """
+    tools = []
+    if agent.tool_id:
+        try:
+            agent_tools_config = await get_tools(agent.tool_id)
+            if agent_tools_config.appointment_tool:
+                logger.info(f"Registering appointment tools for agent {agent.id}")
+                appt_tools = AppointmentTools()
+                tools.extend([
+                    appt_tools.check_availability,
+                    appt_tools.book_appointment,
+                    appt_tools.call_forward
+                ])
+        except Exception as e:
+            logger.error(f"Failed to fetch tools for agent {agent.id}: {e}")
+    return tools
