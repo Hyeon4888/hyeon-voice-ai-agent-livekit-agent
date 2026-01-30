@@ -3,12 +3,16 @@ import httpx
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
 from dotenv import load_dotenv
+import logging
 
 from pathlib import Path
 
 # Load environment variables
 env_path = Path(__file__).parent.parent / ".env.local"
 load_dotenv(dotenv_path=env_path)
+
+logger = logging.getLogger("voice-agent")
+logger.setLevel(logging.INFO)
 
 @dataclass
 class Agent:
@@ -19,6 +23,7 @@ class Agent:
     greeting_prompt: Optional[str] = None
     system_prompt: Optional[str] = None
     user_id: Optional[str] = None
+    api_key: Optional[str] = None
 
 async def fetch_agent(agent_id: str) -> Agent:
     """
@@ -57,6 +62,15 @@ async def fetch_agent(agent_id: str) -> Agent:
         
         # Map fields if necessary, assuming API returns keys matching Agent fields
         # Ideally, we should validate this, but for now strict mapping
+        api_key = data.get("api_key")
+        logger.info(f"API Key: {api_key}")
+        logger.info(f"Agent: {data.get('name')}")
+        logger.info(f"Agent Type: {data.get('agent_type')}")
+        logger.info(f"Voice: {data.get('voice')}")
+        logger.info(f"Greeting Prompt: {data.get('greeting_prompt')}")
+        logger.info(f"System Prompt: {data.get('system_prompt')}")
+        logger.info(f"User ID: {data.get('user_id')}")
+
         return Agent(
             id=data.get("id", "manual-dispatch"),
             name=data.get("name", "Assistant"),
@@ -64,5 +78,6 @@ async def fetch_agent(agent_id: str) -> Agent:
             voice=data.get("voice", "alloy"),
             greeting_prompt=data.get("greeting_prompt",""),
             system_prompt=data.get("system_prompt",""),
-            user_id=data.get("user_id","")
+            user_id=data.get("user_id",""),
+            api_key=data.get("api_key")
         )

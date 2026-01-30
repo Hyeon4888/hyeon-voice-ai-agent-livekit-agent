@@ -18,6 +18,7 @@ def getAgentSession(agent: Agent) -> AgentSession:
         return AgentSession(
             llm=openai.realtime.RealtimeModel(
                 voice=agent.voice,
+                api_key=agent.api_key,
             ),
             vad=silero.VAD.load(),
         )
@@ -45,6 +46,9 @@ def getAgentSession(agent: Agent) -> AgentSession:
 
     # Fallback default
     return AgentSession(
-        llm=openai.realtime.RealtimeModel(voice=agent.voice or "alloy"),
+        llm=openai.realtime.RealtimeModel(
+            voice=agent.voice or "alloy",
+            api_key=agent.openai_api_key,
+        ),
         vad=silero.VAD.load(),
     )
