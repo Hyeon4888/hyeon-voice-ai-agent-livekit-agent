@@ -1,10 +1,11 @@
 from dotenv import load_dotenv
 
 from livekit import agents, rtc
-from livekit.agents import AgentServer, AgentSession, Agent, room_io
+from livekit.agents import AgentServer, AgentSession, Agent, room_io, JobContext, cli,WorkerOptions,JobProcess
 from livekit.plugins import (
     openai,
     noise_cancellation,
+    silero,
 )
 import logging
 import os
@@ -31,10 +32,11 @@ class Assistant(Agent):
             allow_interruptions=False,
         )
 
-server = AgentServer()
+def prewarm(proc: JobProcess):
+    """Prewarm VAD model for faster startup."""
+    proc.userdata["vad"] = silero.VAD.load()
 
-@server.rtc_session()
-async def my_agent(ctx: agents.JobContext):
+async def entrypoint(ctx:JobContext):
 
     agent_id = ctx.job.metadata if ctx.job.metadata else None
     logger.info(f"Starting agent session for room {ctx.room.name} with agent {agent_id}")
@@ -46,7 +48,11 @@ async def my_agent(ctx: agents.JobContext):
      # Wait for the first participant to join
     participant = await ctx.wait_for_participant()
 
-    agent_id = participant.attributes.get("agent_id")
+    logger.info(f"Room name: {ctx.room.name}, Room SID: {ctx.room.sid}")
+    logger.info(f"Participant identity: {participant.identity}, Name: {participant.name}, Kind: {participant.kind}")
+    logger.info(f"Participant attributes: {participant.attributes}")
+
+    agent_id = participant.attributes.get("agent_id") or ctx.job.metadata
     agent = await fetch_agent(agent_id)
 
     if not agent:
@@ -94,4 +100,8 @@ async def my_agent(ctx: agents.JobContext):
     )
 
 if __name__ == "__main__":
-    agents.cli.run_app(server)
+    cli.run_app(WorkerOptions(
+        entrypoint_fnc=entrypoint, 
+        prewarm_fnc=prewarm, 
+        agent_name='voice-ai-agent'
+    ))
