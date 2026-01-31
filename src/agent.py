@@ -12,6 +12,7 @@ from pathlib import Path
 import datetime
 from agent_config.get_agent import fetch_agent, get_agentTools, create_history
 from agent_config.session_factory import getAgentSession
+from agent_config.create_session_report import create_SessionReport
 
 # Load environment variables from src/.env.local
 load_dotenv(".env.local")
@@ -62,21 +63,17 @@ async def my_agent(ctx: agents.JobContext):
         logger.info(f"Session shutdown initiated for agent {agent.id}")
         end_time = datetime.datetime.now()
         duration = int((end_time - start_time).total_seconds())
-        
-        conversation = []
-        if hasattr(session, 'chat_ctx'):
-             for msg in session.chat_ctx.messages:
-                 conversation.append({
-                     "role": msg.role,
-                     "content": msg.content
-                 })
+
+        # Use make_session_report to capture session details including conversation history
+
+        conversation = create_SessionReport(ctx, session)
         
         logger.info(f"Gathered session history: duration={duration}s, conversation_messages={len(conversation)}")
         
         await create_history({
             "agent_id": agent.id,
-            "date": end_time.date().isoformat(),
-            "time": end_time.time().isoformat(),
+            "date": start_time.date().isoformat(),
+            "time": start_time.time().isoformat(),
             "duration": duration,
             "summary": None,
             "conversation": conversation
@@ -84,9 +81,11 @@ async def my_agent(ctx: agents.JobContext):
 
     ctx.add_shutdown_callback(shutdown_handler)
 
+    my_assistant = Assistant(agent.system_prompt, agent.greeting_prompt, tools=tools)
+
     await session.start(
         room=ctx.room,
-        agent=Assistant(agent.system_prompt, agent.greeting_prompt, tools=tools),
+        agent=my_assistant,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
                 noise_cancellation=lambda params: noise_cancellation.BVCTelephony() if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP else noise_cancellation.BVC(),
