@@ -142,12 +142,26 @@ async def get_tools(tool_id: str) -> AgentTool:
 
 # Import necessary for the new function
 from tools.appointment_tool import AppointmentTools
+from tools.defaut.default_tools import DefaultTools
 
 async def get_agentTools(agent: Agent) -> list:
     """
     Fetch and initialize tools for the agent.
     """
     tools = []
+    
+    # Initialize default tools (e.g. business hours) which are generally available
+    # or check if they should be enabled based on agent config if needed.
+    # For now, we enable them for all agents that have a user_id.
+    if agent.user_id:
+        try:
+             # DefaultTools no longer requires user_id at init
+            def_tools = DefaultTools()
+            # tools.append(def_tools.get_business_hours) # This method was removed
+            tools.extend([def_tools.is_org_open, def_tools.call_forward])
+        except Exception as e:
+             logger.error(f"Failed to register default tools for agent {agent.id}: {e}")
+
     if agent.tool_id:
         try:
             agent_tools_config = await get_tools(agent.tool_id)
@@ -156,8 +170,7 @@ async def get_agentTools(agent: Agent) -> list:
                 appt_tools = AppointmentTools()
                 tools.extend([
                     appt_tools.check_availability,
-                    appt_tools.book_appointment,
-                    appt_tools.call_forward
+                    appt_tools.book_appointment
                 ])
         except Exception as e:
             logger.error(f"Failed to fetch tools for agent {agent.id}: {e}")

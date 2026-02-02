@@ -14,6 +14,7 @@ import datetime
 from agent_config.get_agent import fetch_agent, get_agentTools, create_history
 from agent_config.session_factory import getAgentSession
 from agent_config.create_session_report import create_SessionReport
+from tools.function_context import FunctionContext
 
 # Load environment variables from src/.env.local
 load_dotenv(".env.local")
@@ -28,7 +29,7 @@ class Assistant(Agent):
     async def on_enter(self):
         """Called when the agent enters the room. Greets the user."""
         await self.session.generate_reply(
-            instructions="Say: " + self.greeting_prompt,
+            instructions="before you say anything, check if user is calling during the business hours and if so forward the call to the agent otherwise say: " + self.greeting_prompt,
             allow_interruptions=False,
         )
 
@@ -48,6 +49,15 @@ async def entrypoint(ctx:JobContext):
      # Wait for the first participant to join
     participant = await ctx.wait_for_participant()
 
+    is_sip_participant = (
+        participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP or
+        "sip.callID" in participant.attributes  # Fallback: check for SIP attributes
+    )
+
+    caller_phone_number = "Unknown"
+    if is_sip_participant:
+        caller_phone_number = participant.attributes.get("sip.phoneNumber", "Unknown")
+
     logger.info(f"Room name: {ctx.room.name}, Room SID: {ctx.room.sid}")
     logger.info(f"Participant identity: {participant.identity}, Name: {participant.name}, Kind: {participant.kind}")
     logger.info(f"Participant attributes: {participant.attributes}")
@@ -64,6 +74,13 @@ async def entrypoint(ctx:JobContext):
     tools = await get_agentTools(agent)
 
     start_time = datetime.datetime.now()
+
+    session.function_context = FunctionContext(
+        phone_number=caller_phone_number,
+        room_name=ctx.room.name,
+        participant=participant,
+        user_id=agent.user_id,
+    )
 
     async def shutdown_handler():
         logger.info(f"Session shutdown initiated for agent {agent.id}")
