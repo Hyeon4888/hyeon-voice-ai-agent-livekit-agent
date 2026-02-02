@@ -29,7 +29,7 @@ class Assistant(Agent):
     async def on_enter(self):
         """Called when the agent enters the room. Greets the user."""
         await self.session.generate_reply(
-            instructions="before you say anything, check if user is calling during the business hours and if so forward the call to the agent otherwise say: " + self.greeting_prompt,
+            instructions="say: " + self.greeting_prompt,
             allow_interruptions=False,
         )
 

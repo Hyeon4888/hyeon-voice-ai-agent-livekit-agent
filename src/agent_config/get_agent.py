@@ -158,7 +158,7 @@ async def get_agentTools(agent: Agent) -> list:
              # DefaultTools no longer requires user_id at init
             def_tools = DefaultTools()
             # tools.append(def_tools.get_business_hours) # This method was removed
-            tools.extend([def_tools.is_org_open, def_tools.call_forward])
+            tools.extend([def_tools.is_org_open, def_tools.call_forward, def_tools.hangup_call])
         except Exception as e:
              logger.error(f"Failed to register default tools for agent {agent.id}: {e}")
 

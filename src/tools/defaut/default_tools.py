@@ -4,8 +4,9 @@ import json
 import httpx
 from typing import Optional
 from livekit.agents.llm import function_tool
-from livekit.agents import RunContext
+from livekit.agents import RunContext, get_job_context
 from tools.function_context import get_function_context
+from livekit import api
 from livekit.api import LiveKitAPI
 from livekit.protocol.sip import TransferSIPParticipantRequest
 
@@ -16,6 +17,7 @@ class DefaultTools:
     async def is_org_open(self, ctx: RunContext, target_time: Optional[str] = None) -> str:
         """
         Check if the business is open currently or at a specific time.
+        if closed, and continue to help the user with other tasks.
         
         Args:
             target_time: Optional ISO format datetime string (e.g., '2023-10-27T10:00:00'). 
@@ -65,20 +67,13 @@ class DefaultTools:
                 response.raise_for_status()
                 is_open = response.json()
                 
-                result = {
-                    "status": "open" if is_open else "closed",
-                    "timestamp": target_time,
-                }
-                return json.dumps(result)
+                result = "open" if is_open else "closed"
+                return result
 
         except Exception as e:
             logger.error(f"Error checking business status: {e}")
-            return json.dumps({
-                "status": "error", 
-                "message": "Unable to check business status.",
-                "error": str(e)
-            })
-
+            return "Unable to check business status."
+             
     
     @function_tool
     async def call_forward(self, ctx: RunContext) -> str:
@@ -118,3 +113,35 @@ class DefaultTools:
                 else:
                     print(f"Error transferring SIP participant:")
                     print(f"{error.status} - {error.code} - {error.message}")
+
+        return "Call forwarded successfully."
+
+    @function_tool
+    async def hangup_call(self, ctx: RunContext) -> str:
+        """
+        Hangs up the call.
+        """
+        logger.info("Received request to hang up call.")
+        
+        job_ctx = get_job_context()
+        if job_ctx: 
+            # Wait for playout if possible, but RunContext or JobContext doesn't guarantee it here 
+            # without agent instance logic, but the snippet used it on ctx (RunContext).
+            # LiveKit agents usually attach wait_for_playout to RunContext in recent versions.
+            try:
+                await ctx.wait_for_playout()
+            except Exception as e:
+                logger.warning(f"Could not wait for playout: {e}")
+
+            await job_ctx.api.room.delete_room(
+                api.DeleteRoomRequest(
+                    room=job_ctx.room.name,
+                )
+            )
+        else:
+             logger.error("No job context found to hang up call.")
+             return "Failed to hang up call."
+
+        return "Call hangup initiated."
+    
+    
